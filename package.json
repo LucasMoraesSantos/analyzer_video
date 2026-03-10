@@ -7,9 +7,14 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "npm run dev:api & npm run dev:web",
+    "dev:web": "npm run dev --workspace @analyzer/web",
+    "dev:api": "npm run dev --workspace @analyzer/api",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "format": "prettier --write ."
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "check:structure": "node scripts/check-structure.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.26.1",
