@@ -7,9 +7,16 @@
     "start": "nest start",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 2).')\"",
+    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 3).')\"",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "prisma validate"
+    "prisma:format": "prisma format",
+    "prisma:validate": "prisma validate",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
