@@ -12,6 +12,7 @@ import { VIDEO_PROVIDER_TOKEN } from './types/video-provider.types';
       provide: VIDEO_PROVIDER_TOKEN,
       useClass: YoutubeVideoProvider
     }
-  ]
+  ],
+  exports: [VideosService]
 })
 export class VideosModule {}
