@@ -7,7 +7,8 @@ const environmentSchema = z.object({
   DATABASE_URL: z.string().min(1),
   REDIS_HOST: z.string().min(1),
   REDIS_PORT: z.coerce.number().int().positive(),
-  YOUTUBE_API_KEY: z.string().min(1)
+  YOUTUBE_API_KEY: z.string().min(1),
+  YOUTUBE_API_BASE_URL: z.string().url().default('https://www.googleapis.com/youtube/v3')
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
