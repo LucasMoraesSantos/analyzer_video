@@ -7,7 +7,7 @@
     "start": "nest start",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 3).')\"",
+    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 4).')\"",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
