@@ -5,6 +5,7 @@ import { Job, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { StructuredLoggerService } from '../../../common/logger/structured-logger.service';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { AnalyticsService } from '../../analytics/analytics.service';
 import { VideosService } from '../../videos/videos.service';
 import { QUEUE_NAMES } from '../constants/queue-names';
 import {
@@ -22,6 +23,7 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly videosService: VideosService,
+    private readonly analyticsService: AnalyticsService,
     private readonly collectionQueueService: CollectionQueueService,
     private readonly logger: StructuredLoggerService
   ) {
@@ -145,15 +147,49 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
     job: Job<PipelineJobPayload>,
     queueName: string
   ): Promise<void> {
-    this.logger.log(
-      {
-        event: 'pipeline_step_enqueued',
-        queueName,
-        collectionJobId: job.data.collectionJobId,
-        bullJobId: job.id
-      },
-      CollectionWorkersService.name
-    );
+    try {
+      if (queueName === QUEUE_NAMES.analyzeTrends) {
+        const result = await this.analyticsService.analyzeTrendsForCollectionJob(
+          job.data.collectionJobId
+        );
+
+        this.logger.log(
+          {
+            event: 'analyze_trends_completed',
+            queueName,
+            collectionJobId: job.data.collectionJobId,
+            processedVideos: result.processedVideos,
+            bullJobId: job.id
+          },
+          CollectionWorkersService.name
+        );
+
+        return;
+      }
+
+      this.logger.log(
+        {
+          event: 'pipeline_step_enqueued',
+          queueName,
+          collectionJobId: job.data.collectionJobId,
+          bullJobId: job.id
+        },
+        CollectionWorkersService.name
+      );
+    } catch (error) {
+      this.logger.error(
+        {
+          event: 'pipeline_step_failed',
+          queueName,
+          collectionJobId: job.data.collectionJobId,
+          bullJobId: job.id,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        error instanceof Error ? error.stack : undefined,
+        CollectionWorkersService.name
+      );
+      throw error;
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

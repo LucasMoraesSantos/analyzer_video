@@ -32,6 +32,13 @@ enum TrendDirection {
   DOWN
 }
 
+enum TrendClassification {
+  SUBINDO
+  ESTAVEL
+  EXPLODINDO
+  SATURADO
+}
+
 enum ScriptDuration {
   S30
   S45
@@ -175,6 +182,7 @@ model TrendAnalysis {
   videoId            String
   trendScore         Decimal        @db.Decimal(6, 2)
   trendDirection     TrendDirection @default(STABLE)
+  trendClassification TrendClassification @default(ESTAVEL)
   heuristicVersion   String
   factorsJson        Json?
   analyzedAt         DateTime       @default(now())
