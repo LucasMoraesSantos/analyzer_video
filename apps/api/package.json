@@ -7,13 +7,19 @@
     "start": "nest start",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 1).')\""
+    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 2).')\"",
+    "prisma:generate": "prisma generate",
+    "prisma:validate": "prisma validate"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.11",
+    "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.11",
     "@nestjs/platform-express": "^11.0.11",
     "@nestjs/swagger": "^11.0.6",
+    "@prisma/client": "^6.5.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "swagger-ui-express": "^5.0.1",
@@ -21,6 +27,8 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.5",
-    "@types/node": "^22.13.10"
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.13.10",
+    "prisma": "^6.5.0"
   }
 }
