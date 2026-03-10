@@ -1,21 +1,20 @@
-import {
-  Injectable,
-  NotFoundException
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { SourcePlatformCode } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ImportYoutubeVideosDto } from './dto/import-youtube-videos.dto';
+import { ShortClassifierService } from './services/short-classifier.service';
 import {
   VIDEO_PROVIDER_TOKEN,
   VideoProvider
 } from './types/video-provider.types';
-import { Inject } from '@nestjs/common';
 
 interface ImportResultItem {
   id: string;
   externalId: string;
   title: string;
   url: string;
+  probableShort: boolean;
+  shortConfidence: number;
 }
 
 interface ImportResult {
@@ -29,6 +28,7 @@ interface ImportResult {
 export class VideosService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly shortClassifierService: ShortClassifierService,
     @Inject(VIDEO_PROVIDER_TOKEN)
     private readonly videoProvider: VideoProvider
   ) {}
@@ -50,8 +50,7 @@ export class VideosService {
       }
     });
 
-    const searchResults =
-      await this.videoProvider.searchRecentVideosByKeyword(input.keyword);
+    const searchResults = await this.videoProvider.searchRecentVideosByKeyword(input.keyword);
 
     const details = await this.videoProvider.getVideoDetails(
       searchResults.map((item) => item.id)
@@ -71,6 +70,12 @@ export class VideosService {
         continue;
       }
 
+      const shortClassification = this.shortClassifierService.classify({
+        durationSeconds: normalized.durationSeconds,
+        title: normalized.title,
+        description: normalized.description
+      });
+
       const video = await this.prisma.video.upsert({
         where: {
           sourcePlatformId_externalId: {
@@ -88,7 +93,9 @@ export class VideosService {
           thumbnailUrl: normalized.thumbnailUrl,
           durationSeconds: normalized.durationSeconds,
           url: normalized.url,
-          rawPayload: normalized.rawPayload
+          rawPayload: normalized.rawPayload,
+          isProbableShort: shortClassification.probableShort,
+          shortConfidence: shortClassification.shortConfidence
         },
         create: {
           sourcePlatformId: sourcePlatform.id,
@@ -102,7 +109,9 @@ export class VideosService {
           thumbnailUrl: normalized.thumbnailUrl,
           durationSeconds: normalized.durationSeconds,
           url: normalized.url,
-          rawPayload: normalized.rawPayload
+          rawPayload: normalized.rawPayload,
+          isProbableShort: shortClassification.probableShort,
+          shortConfidence: shortClassification.shortConfidence
         }
       });
 
@@ -120,7 +129,9 @@ export class VideosService {
         id: video.id,
         externalId: video.externalId,
         title: video.title,
-        url: video.url
+        url: video.url,
+        probableShort: video.isProbableShort,
+        shortConfidence: video.shortConfidence ?? 0
       });
     }
 

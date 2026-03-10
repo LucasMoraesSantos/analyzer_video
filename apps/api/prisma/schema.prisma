@@ -120,6 +120,7 @@ model Video {
   thumbnailUrl        String?
   durationSeconds     Int?
   isProbableShort     Boolean               @default(false)
+  shortConfidence     Float?
   languageCode        String?
   rawPayload          Json?
   sourcePlatform      SourcePlatform        @relation(fields: [sourcePlatformId], references: [id], onDelete: Restrict)

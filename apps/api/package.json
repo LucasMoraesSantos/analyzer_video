@@ -7,13 +7,14 @@
     "start": "nest start",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "test": "node -e \"console.log('No tests yet for @analyzer/api (stage 6).')\"",
+    "test": "npm run test:short-classifier",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:seed": "prisma db seed"
+    "prisma:seed": "prisma db seed",
+    "test:short-classifier": "node --test src/modules/videos/services/__tests__/short-classifier.logic.spec.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"
