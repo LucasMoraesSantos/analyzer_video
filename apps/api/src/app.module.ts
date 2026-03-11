@@ -4,6 +4,7 @@ import { StructuredLoggerService } from './common/logger/structured-logger.servi
 import { validateEnvironment } from './config/environment';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { CollectionModule } from './modules/collection/collection.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthModule } from './modules/health/health.module';
 import { KeywordsModule } from './modules/keywords/keywords.module';
 import { NichesModule } from './modules/niches/niches.module';
@@ -24,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
     KeywordsModule,
     VideosModule,
     CollectionModule,
+    DashboardModule,
     AnalyticsModule,
     SummariesModule,
     ScriptsModule

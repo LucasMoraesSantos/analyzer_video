@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, TrendDirection, TrendClassification } from '@prisma/client';
+import { AiJobStatus, Prisma, TrendClassification, TrendDirection } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { ListTrendsQueryDto } from './dto/list-trends-query.dto';
+import { TopListQueryDto } from './dto/top-list-query.dto';
 import { TrendScoreService } from './services/trend-score.service';
 
 interface AnalyzeTrendsResult {
@@ -94,6 +96,152 @@ export class AnalyticsService {
       collectionJobId,
       processedVideos
     };
+  }
+
+  async listTrends(query: ListTrendsQueryDto) {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+
+    const where: Prisma.TrendAnalysisWhereInput = {
+      ...(query.nicheId ? { video: { nicheId: query.nicheId } } : {}),
+      ...(query.classification ? { trendClassification: query.classification } : {}),
+      ...(query.direction ? { trendDirection: query.direction } : {}),
+      ...(query.minTrendScore !== undefined
+        ? { trendScore: { gte: query.minTrendScore } }
+        : {})
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.trendAnalysis.count({ where }),
+      this.prisma.trendAnalysis.findMany({
+        where,
+        orderBy: [{ trendScore: query.order ?? 'desc' }, { analyzedAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          video: {
+            select: {
+              id: true,
+              title: true,
+              url: true,
+              thumbnailUrl: true,
+              niche: { select: { id: true, name: true } }
+            }
+          }
+        }
+      })
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        trendScore: Number(row.trendScore),
+        trendDirection: row.trendDirection,
+        trendClassification: row.trendClassification,
+        analyzedAt: row.analyzedAt,
+        factors: row.factorsJson,
+        video: row.video
+      })),
+      meta: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize)
+      }
+    };
+  }
+
+  async listClassifications() {
+    const grouped = await this.prisma.trendAnalysis.groupBy({
+      by: ['trendClassification'],
+      _count: { _all: true }
+    });
+
+    const total = grouped.reduce((acc, item) => acc + item._count._all, 0);
+
+    return {
+      data: grouped.map((item) => ({
+        classification: item.trendClassification,
+        count: item._count._all,
+        percentage: total > 0 ? Number(((item._count._all / total) * 100).toFixed(2)) : 0
+      })),
+      meta: { total }
+    };
+  }
+
+  async listTopHooks(query: TopListQueryDto) {
+    const summaries = await this.prisma.contentSummary.findMany({
+      where: {
+        status: AiJobStatus.COMPLETED,
+        ...(query.nicheId ? { video: { nicheId: query.nicheId } } : {})
+      },
+      select: { responseJson: true }
+    });
+
+    const countMap = new Map<string, number>();
+    for (const summary of summaries) {
+      const hook = this.extractStringField(summary.responseJson, 'ganchoInicial');
+      if (!hook) {
+        continue;
+      }
+      countMap.set(hook, (countMap.get(hook) ?? 0) + 1);
+    }
+
+    return {
+      data: [...countMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, query.limit ?? 10)
+        .map(([hook, count]) => ({ hook, count }))
+    };
+  }
+
+  async listTopKeywords(query: TopListQueryDto) {
+    const summaries = await this.prisma.contentSummary.findMany({
+      where: {
+        status: AiJobStatus.COMPLETED,
+        ...(query.nicheId ? { video: { nicheId: query.nicheId } } : {})
+      },
+      select: { responseJson: true }
+    });
+
+    const countMap = new Map<string, number>();
+    for (const summary of summaries) {
+      const words = this.extractKeywordArray(summary.responseJson);
+      for (const word of words) {
+        countMap.set(word, (countMap.get(word) ?? 0) + 1);
+      }
+    }
+
+    return {
+      data: [...countMap.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, query.limit ?? 10)
+        .map(([keyword, count]) => ({ keyword, count }))
+    };
+  }
+
+  private extractStringField(json: Prisma.JsonValue | null, field: string): string | null {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+      return null;
+    }
+
+    const value = (json as Record<string, unknown>)[field];
+    return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null;
+  }
+
+  private extractKeywordArray(json: Prisma.JsonValue | null): string[] {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+      return [];
+    }
+
+    const value = (json as Record<string, unknown>).palavrasChave;
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return value
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => item.trim().toLowerCase());
   }
 
   private async ensureAtLeastOneSnapshot(
