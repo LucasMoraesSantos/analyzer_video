@@ -7,7 +7,7 @@
     "start": "nest start",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint src --ext .ts",
-    "test": "npm run test:short-classifier && npm run test:trend-score && npm run test:summary-parser",
+    "test": "npm run test:short-classifier && npm run test:trend-score && npm run test:summary-parser && npm run test:script-parser",
     "prisma:generate": "prisma generate",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
@@ -16,7 +16,8 @@
     "prisma:seed": "prisma db seed",
     "test:short-classifier": "node --test src/modules/videos/services/__tests__/short-classifier.logic.spec.mjs",
     "test:trend-score": "node --test src/modules/analytics/services/__tests__/trend-score.logic.spec.mjs",
-    "test:summary-parser": "node --test src/modules/summaries/services/__tests__/summary-output-parser.logic.spec.mjs"
+    "test:summary-parser": "node --test src/modules/summaries/services/__tests__/summary-output-parser.logic.spec.mjs",
+    "test:script-parser": "node --test src/modules/scripts/services/__tests__/script-output-parser.logic.spec.mjs"
   },
   "prisma": {
     "seed": "node prisma/seed.mjs"

@@ -1,11 +1,11 @@
 # Analyzer Video Monorepo
 
-Bootstrap inicial (ETAPA 1) da plataforma para análise de vídeos curtos por nicho.
+Monorepo da plataforma de análise de vídeos curtos por nicho, com pipeline assíncrona de coleta, sumarização e geração de roteiros.
 
 ## Estrutura
 
 - `apps/web`: frontend Next.js (App Router + TypeScript + Tailwind)
-- `apps/api`: backend NestJS (TypeScript + Swagger)
+- `apps/api`: backend NestJS (TypeScript + Swagger + BullMQ)
 - `packages/types`: tipos compartilhados
 - `packages/config`: utilitários e schema de configuração
 - `packages/ui`: base para componentes compartilhados de UI
@@ -62,6 +62,23 @@ npm run build
 npm run test
 ```
 
-## Objetivo desta etapa
+## Scripts úteis da API
 
-Esta etapa contém apenas a fundação do monorepo e infraestrutura local. Regras de negócio e telas finais serão implementadas nas próximas etapas.
+```bash
+npm run test --workspace @analyzer/api
+npm run test:summary-parser --workspace @analyzer/api
+npm run test:script-parser --workspace @analyzer/api
+```
+
+## Endpoints principais da API
+
+- `GET /health`
+- `GET /niches`
+- `GET /keywords`
+- `GET /videos`
+- `GET /summaries/video/:videoId`
+- `GET /scripts/video/:videoId`
+- `POST /collection/jobs`
+- `GET /collection/jobs`
+
+Para explorar todos os endpoints e schemas, use o Swagger exposto pela API em execução.

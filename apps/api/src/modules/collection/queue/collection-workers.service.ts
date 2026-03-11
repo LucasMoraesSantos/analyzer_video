@@ -8,6 +8,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { AnalyticsService } from '../../analytics/analytics.service';
 import { SummariesService } from '../../summaries/summaries.service';
 import { VideosService } from '../../videos/videos.service';
+import { ScriptsService } from '../../scripts/scripts.service';
 import { QUEUE_NAMES } from '../constants/queue-names';
 import {
   CollectVideosPayload,
@@ -26,6 +27,7 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
     private readonly videosService: VideosService,
     private readonly analyticsService: AnalyticsService,
     private readonly summariesService: SummariesService,
+    private readonly scriptsService: ScriptsService,
     private readonly collectionQueueService: CollectionQueueService,
     private readonly logger: StructuredLoggerService
   ) {
@@ -182,6 +184,27 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
             processedVideos: result.processedVideos,
             completed: result.completed,
             failed: result.failed,
+            bullJobId: job.id
+          },
+          CollectionWorkersService.name
+        );
+
+        return;
+      }
+
+      if (queueName === QUEUE_NAMES.generateScripts) {
+        const result = await this.scriptsService.generateForCollectionJob(
+          job.data.collectionJobId
+        );
+
+        this.logger.log(
+          {
+            event: 'generate_scripts_completed',
+            queueName,
+            collectionJobId: job.data.collectionJobId,
+            processedVideos: result.processedVideos,
+            generatedScripts: result.generatedScripts,
+            failedScripts: result.failedScripts,
             bullJobId: job.id
           },
           CollectionWorkersService.name
