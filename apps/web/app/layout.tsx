@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import { QueryProvider } from '@/lib/query-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Analyzer Video',
-  description: 'Plataforma de análise de vídeos curtos por nicho'
+  title: 'Analyzer Video Admin',
+  description: 'Frontend administrativo da plataforma Analyzer Video'
 };
 
 export default function RootLayout({
@@ -11,7 +12,9 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>): React.JSX.Element {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+      </body>
     </html>
   );
 }
