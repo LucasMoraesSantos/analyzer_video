@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SourcePlatformCode {
+  YOUTUBE
+}
+
+enum CollectionJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELED
+}
+
+enum AiJobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum TrendDirection {
+  UP
+  STABLE
+  DOWN
+}
+
+enum TrendClassification {
+  SUBINDO
+  ESTAVEL
+  EXPLODINDO
+  SATURADO
+}
+
+enum ScriptDuration {
+  S30
+  S45
+  S60
+}
+
+model SourcePlatform {
+  id            String          @id @default(cuid())
+  code          SourcePlatformCode @unique
+  name          String
+  isActive      Boolean         @default(true)
+  collectionJobs CollectionJob[]
+  videos        Video[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model Niche {
+  id             String           @id @default(cuid())
+  slug           String           @unique
+  name           String           @unique
+  isActive       Boolean          @default(true)
+  keywords       Keyword[]
+  collectionJobs CollectionJob[]
+  videos         Video[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model Keyword {
+  id        String   @id @default(cuid())
+  nicheId   String
+  term      String
+  isActive  Boolean  @default(true)
+  niche     Niche    @relation(fields: [nicheId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([nicheId, term])
+  @@index([nicheId, isActive])
+}
+
+model CollectionJob {
+  id               String               @id @default(cuid())
+  sourcePlatformId String
+  nicheId          String
+  status           CollectionJobStatus  @default(PENDING)
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  totalFound       Int                  @default(0)
+  totalImported    Int                  @default(0)
+  errorMessage     String?
+  sourcePlatform   SourcePlatform       @relation(fields: [sourcePlatformId], references: [id], onDelete: Restrict)
+  niche            Niche                @relation(fields: [nicheId], references: [id], onDelete: Restrict)
+  videos           CollectionJobVideo[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([sourcePlatformId, status, createdAt])
+  @@index([nicheId, status, createdAt])
+}
+
+model CollectionJobVideo {
+  id              String        @id @default(cuid())
+  collectionJobId String
+  videoId         String
+  collectionJob   CollectionJob @relation(fields: [collectionJobId], references: [id], onDelete: Cascade)
+  video           Video         @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+
+  @@unique([collectionJobId, videoId])
+  @@index([videoId])
+}
+
+model Video {
+  id                  String                @id @default(cuid())
+  sourcePlatformId    String
+  nicheId             String
+  externalId          String
+  url                 String
+  title               String
+  description         String?
+  publishedAt         DateTime?
+  channelId           String?
+  channelTitle        String?
+  thumbnailUrl        String?
+  durationSeconds     Int?
+  isProbableShort     Boolean               @default(false)
+  shortConfidence     Float?
+  languageCode        String?
+  rawPayload          Json?
+  sourcePlatform      SourcePlatform        @relation(fields: [sourcePlatformId], references: [id], onDelete: Restrict)
+  niche               Niche                 @relation(fields: [nicheId], references: [id], onDelete: Restrict)
+  metricSnapshots     VideoMetricSnapshot[]
+  transcript          Transcript?
+  trendAnalyses       TrendAnalysis[]
+  contentSummaries    ContentSummary[]
+  scriptGenerations   ScriptGeneration[]
+  collectionJobs      CollectionJobVideo[]
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@unique([sourcePlatformId, externalId])
+  @@index([nicheId, publishedAt])
+  @@index([isProbableShort, createdAt])
+}
+
+model VideoMetricSnapshot {
+  id              String   @id @default(cuid())
+  videoId         String
+  viewCount       Int?
+  likeCount       Int?
+  commentCount    Int?
+  favoriteCount   Int?
+  capturedAt      DateTime @default(now())
+  video           Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([videoId, capturedAt])
+}
+
+model Transcript {
+  id                 String   @id @default(cuid())
+  videoId            String   @unique
+  languageCode       String?
+  provider           String?
+  status             AiJobStatus @default(PENDING)
+  rawText            String?
+  segmentsJson       Json?
+  fetchedAt          DateTime?
+  video              Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([status, createdAt])
+}
+
+model TrendAnalysis {
+  id                 String         @id @default(cuid())
+  videoId            String
+  trendScore         Decimal        @db.Decimal(6, 2)
+  trendDirection     TrendDirection @default(STABLE)
+  trendClassification TrendClassification @default(ESTAVEL)
+  heuristicVersion   String
+  factorsJson        Json?
+  analyzedAt         DateTime       @default(now())
+  video              Video          @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([videoId, analyzedAt])
+  @@index([trendScore])
+}
+
+model ContentSummary {
+  id                 String      @id @default(cuid())
+  videoId            String
+  status             AiJobStatus @default(PENDING)
+  model              String?
+  prompt             String?
+  responseJson       Json?
+  errorMessage       String?
+  generatedAt        DateTime?
+  video              Video       @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  scriptGenerations  ScriptGeneration[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([videoId, status, createdAt])
+}
+
+model ScriptGeneration {
+  id                 String      @id @default(cuid())
+  videoId            String
+  contentSummaryId   String?
+  status             AiJobStatus @default(PENDING)
+  duration           ScriptDuration
+  model              String?
+  prompt             String?
+  responseJson       Json?
+  errorMessage       String?
+  generatedAt        DateTime?
+  video              Video       @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  contentSummary     ContentSummary? @relation(fields: [contentSummaryId], references: [id], onDelete: SetNull)
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([videoId, duration, status])
+  @@index([contentSummaryId])
+}

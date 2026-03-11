@@ -1,0 +1,2 @@
+ALTER TABLE "Video"
+ADD COLUMN "shortConfidence" DOUBLE PRECISION;
