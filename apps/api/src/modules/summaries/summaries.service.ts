@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AiJobStatus } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -10,10 +10,13 @@ interface SummaryGenerationResult {
   processedVideos: number;
   completed: number;
   failed: number;
+  fallbackUsed: number;
 }
 
 @Injectable()
 export class SummariesService {
+  private readonly logger = new Logger(SummariesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -46,6 +49,7 @@ export class SummariesService {
 
     let completed = 0;
     let failed = 0;
+    let fallbackUsed = 0;
 
     for (const video of videos) {
       const contentSummary = await this.prisma.contentSummary.create({
@@ -55,22 +59,33 @@ export class SummariesService {
         }
       });
 
+      const transcript = await this.prisma.transcript.findUnique({
+        where: { videoId: video.id }
+      });
+
+      if (!transcript?.rawText) {
+        this.logger.warn(
+          JSON.stringify({
+            event: 'summary_transcript_missing_fallback',
+            collectionJobId,
+            videoId: video.id
+          })
+        );
+      }
+
+      const prompt = this.buildPrompt({
+        nicheName: collectionJob.niche.name,
+        nicheKeywords: collectionJob.niche.keywords.map((k) => k.term),
+        title: video.title,
+        description: video.description,
+        channelTitle: video.channelTitle,
+        durationSeconds: video.durationSeconds,
+        transcriptText: transcript?.rawText ?? null
+      });
+
+      const model = this.configService.get<string>('OPENAI_MODEL', 'gpt-4o-mini');
+
       try {
-        const transcript = await this.prisma.transcript.findUnique({
-          where: { videoId: video.id }
-        });
-
-        const prompt = this.buildPrompt({
-          nicheName: collectionJob.niche.name,
-          nicheKeywords: collectionJob.niche.keywords.map((k) => k.term),
-          title: video.title,
-          description: video.description,
-          channelTitle: video.channelTitle,
-          durationSeconds: video.durationSeconds,
-          transcriptText: transcript?.rawText ?? null
-        });
-
-        const model = this.configService.get<string>('OPENAI_MODEL', 'gpt-4o-mini');
         const aiResult = await this.aiProvider.generateStructuredSummary({
           prompt,
           model
@@ -92,14 +107,36 @@ export class SummariesService {
 
         completed += 1;
       } catch (error) {
+        const fallback = this.buildFallbackSummary({
+          nicheName: collectionJob.niche.name,
+          title: video.title,
+          description: video.description,
+          channelTitle: video.channelTitle
+        });
+
         await this.prisma.contentSummary.update({
           where: { id: contentSummary.id },
           data: {
-            status: AiJobStatus.FAILED,
-            errorMessage: error instanceof Error ? error.message : String(error)
+            status: AiJobStatus.COMPLETED,
+            model: 'fallback-local',
+            prompt,
+            responseJson: fallback,
+            generatedAt: new Date(),
+            errorMessage: `FALLBACK_APPLIED: ${error instanceof Error ? error.message : String(error)}`
           }
         });
-        failed += 1;
+
+        fallbackUsed += 1;
+        completed += 1;
+
+        this.logger.warn(
+          JSON.stringify({
+            event: 'summary_fallback_applied',
+            collectionJobId,
+            videoId: video.id,
+            error: error instanceof Error ? error.message : String(error)
+          })
+        );
       }
     }
 
@@ -107,7 +144,8 @@ export class SummariesService {
       collectionJobId,
       processedVideos: videos.length,
       completed,
-      failed
+      failed,
+      fallbackUsed
     };
   }
 
@@ -141,5 +179,29 @@ export class SummariesService {
       '- palavrasChave e elementosVirais podem ser arrays.',
       '- Seja objetivo e útil para análise e recriação.'
     ].join('\n');
+  }
+
+  private buildFallbackSummary(input: {
+    nicheName: string;
+    title: string;
+    description: string | null;
+    channelTitle: string | null;
+  }) {
+    return {
+      temaCentral: input.title,
+      nicho: input.nicheName,
+      ganchoInicial: 'Gancho não identificado automaticamente.',
+      promessa: 'Promessa não identificada automaticamente.',
+      estruturaDoVideo: 'Estrutura inferida por fallback de metadados.',
+      tom: 'Neutro',
+      emocaoPredominante: 'Curiosidade',
+      elementosVirais: ['título chamativo'],
+      publicoProvavel: input.nicheName,
+      palavrasChave: [input.nicheName.toLowerCase()],
+      resumoExecutivo: input.description ?? `Vídeo do canal ${input.channelTitle ?? 'desconhecido'}.`,
+      insightDeRecriacao: 'Reprocessar com IA quando o serviço externo normalizar.',
+      riscosDeCopia: 'Baixa confiança por fallback sem IA.',
+      roteiroBaseInspiracional: 'Criar roteiro a partir do tema central e promessa simplificada.'
+    };
   }
 }

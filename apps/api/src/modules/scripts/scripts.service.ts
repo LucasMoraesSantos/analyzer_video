@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AiJobStatus, ScriptDuration } from '@prisma/client';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -10,10 +10,13 @@ interface ScriptGenerationBatchResult {
   processedVideos: number;
   generatedScripts: number;
   failedScripts: number;
+  fallbackUsed: number;
 }
 
 @Injectable()
 export class ScriptsService {
+  private readonly logger = new Logger(ScriptsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
@@ -46,6 +49,7 @@ export class ScriptsService {
 
     let generatedScripts = 0;
     let failedScripts = 0;
+    let fallbackUsed = 0;
 
     for (const video of videos) {
       const summary = video.contentSummaries[0];
@@ -63,14 +67,15 @@ export class ScriptsService {
           }
         });
 
-        try {
-          const prompt = this.buildPrompt({
-            duration,
-            nicheName: collectionJob.niche.name,
-            summaryJson: summary.responseJson
-          });
+        const prompt = this.buildPrompt({
+          duration,
+          nicheName: collectionJob.niche.name,
+          summaryJson: summary.responseJson
+        });
 
-          const model = this.configService.get<string>('OPENAI_MODEL', 'gpt-4o-mini');
+        const model = this.configService.get<string>('OPENAI_MODEL', 'gpt-4o-mini');
+
+        try {
           const aiResult = await this.aiProvider.generateStructuredSummary({
             prompt,
             model
@@ -92,14 +97,32 @@ export class ScriptsService {
 
           generatedScripts += 1;
         } catch (error) {
+          const fallback = this.buildFallbackScript(duration);
+
           await this.prisma.scriptGeneration.update({
             where: { id: scriptGeneration.id },
             data: {
-              status: AiJobStatus.FAILED,
-              errorMessage: error instanceof Error ? error.message : String(error)
+              status: AiJobStatus.COMPLETED,
+              model: 'fallback-local',
+              prompt,
+              responseJson: fallback,
+              generatedAt: new Date(),
+              errorMessage: `FALLBACK_APPLIED: ${error instanceof Error ? error.message : String(error)}`
             }
           });
-          failedScripts += 1;
+
+          fallbackUsed += 1;
+          generatedScripts += 1;
+
+          this.logger.warn(
+            JSON.stringify({
+              event: 'script_fallback_applied',
+              collectionJobId,
+              videoId: video.id,
+              duration,
+              error: error instanceof Error ? error.message : String(error)
+            })
+          );
         }
       }
     }
@@ -108,7 +131,8 @@ export class ScriptsService {
       collectionJobId,
       processedVideos: videos.length,
       generatedScripts,
-      failedScripts
+      failedScripts,
+      fallbackUsed
     };
   }
 
@@ -131,7 +155,12 @@ export class ScriptsService {
     nicheName: string;
     summaryJson: unknown;
   }): string {
-    const durationLabel = input.duration === ScriptDuration.S30 ? '30s' : input.duration === ScriptDuration.S45 ? '45s' : '60s';
+    const durationLabel =
+      input.duration === ScriptDuration.S30
+        ? '30s'
+        : input.duration === ScriptDuration.S45
+          ? '45s'
+          : '60s';
 
     return [
       `Gere um roteiro derivado para vídeo curto de ${durationLabel}.`,
@@ -147,5 +176,21 @@ export class ScriptsService {
       '- sugestoesTextoTela e sugestoesCortesCenas preferencialmente arrays.',
       '- Não incluir markdown.'
     ].join('\n');
+  }
+
+  private buildFallbackScript(duration: ScriptDuration) {
+    const durationLabel =
+      duration === ScriptDuration.S30 ? '30 segundos' : duration === ScriptDuration.S45 ? '45 segundos' : '60 segundos';
+
+    return {
+      hook: `Roteiro de fallback para ${durationLabel}.`,
+      abertura: 'Abra com uma pergunta direta sobre a dor do público.',
+      desenvolvimento: 'Apresente uma dica prática em 2 a 3 passos objetivos.',
+      fechamento: 'Reforce o principal benefício e o próximo passo.',
+      cta: 'Comente sua principal dúvida para receber a continuação.',
+      sugestoesTextoTela: ['Problema principal', 'Solução rápida', 'Próximo passo'],
+      sugestaoNarracao: 'Tom direto e didático, com ritmo dinâmico.',
+      sugestoesCortesCenas: ['Corte no gancho', 'Close no ponto-chave', 'Tela final com CTA']
+    };
   }
 }

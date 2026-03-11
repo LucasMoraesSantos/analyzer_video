@@ -70,6 +70,35 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
       )
     );
 
+
+    for (const worker of this.workers) {
+      worker.on('completed', (job) => {
+        this.logger.log(
+          {
+            event: 'worker_job_completed',
+            queueName: worker.name,
+            bullJobId: job.id,
+            attemptsMade: job.attemptsMade
+          },
+          CollectionWorkersService.name
+        );
+      });
+
+      worker.on('failed', (job, error) => {
+        this.logger.error(
+          {
+            event: 'worker_job_failed',
+            queueName: worker.name,
+            bullJobId: job?.id,
+            attemptsMade: job?.attemptsMade,
+            error: error.message
+          },
+          error.stack,
+          CollectionWorkersService.name
+        );
+      });
+    }
+
     this.logger.log(
       {
         event: 'collection_workers_initialized',
@@ -131,6 +160,20 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
         ? CollectionJobStatus.FAILED
         : CollectionJobStatus.COMPLETED;
 
+    this.logger.log(
+      {
+        event: 'collection_job_finished',
+        collectionJobId,
+        nicheId,
+        status,
+        totalFound,
+        totalImported,
+        partialFailures: errors.length,
+        retriable: status === CollectionJobStatus.FAILED
+      },
+      CollectionWorkersService.name
+    );
+
     await this.prisma.collectionJob.update({
       where: { id: collectionJobId },
       data: {
@@ -138,7 +181,10 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
         totalFound,
         totalImported,
         finishedAt: new Date(),
-        errorMessage: errors.length > 0 ? errors.join(' | ') : null
+        errorMessage:
+          errors.length > 0
+            ? `Falhas parciais durante a coleta: ${errors.join(' | ')}`
+            : null
       }
     });
 

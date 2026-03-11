@@ -1,4 +1,4 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JobsOptions, Queue } from 'bullmq';
 import IORedis from 'ioredis';
@@ -10,8 +10,11 @@ import {
 
 @Injectable()
 export class CollectionQueueService implements OnModuleDestroy {
+  private readonly logger = new Logger(CollectionQueueService.name);
   private readonly connection: IORedis;
   private readonly queues: Map<QueueName, Queue>;
+  private readonly defaultAttempts: number;
+  private readonly defaultBackoffMs: number;
 
   constructor(private readonly configService: ConfigService) {
     this.connection = new IORedis({
@@ -19,6 +22,9 @@ export class CollectionQueueService implements OnModuleDestroy {
       port: this.configService.get<number>('REDIS_PORT', 6379),
       maxRetriesPerRequest: null
     });
+
+    this.defaultAttempts = this.configService.get<number>('QUEUE_JOB_ATTEMPTS', 3);
+    this.defaultBackoffMs = this.configService.get<number>('QUEUE_JOB_BACKOFF_MS', 1000);
 
     this.queues = new Map(
       Object.values(QUEUE_NAMES).map((queueName) => [
@@ -52,17 +58,29 @@ export class CollectionQueueService implements OnModuleDestroy {
       throw new Error(`Queue ${queueName} não encontrada.`);
     }
 
+    const jobId = `${queueName}:${baseJobId}:${Date.now()}`;
+
     await queue.add(queueName, data, {
-      jobId: `${queueName}:${baseJobId}:${Date.now()}`,
-      attempts: 3,
+      jobId,
+      attempts: this.defaultAttempts,
       backoff: {
         type: 'exponential',
-        delay: 1000
+        delay: this.defaultBackoffMs
       },
       removeOnComplete: 100,
       removeOnFail: 200,
       ...options
     });
+
+    this.logger.log(
+      JSON.stringify({
+        event: 'queue_job_enqueued',
+        queueName,
+        jobId,
+        attempts: this.defaultAttempts,
+        backoffMs: this.defaultBackoffMs
+      })
+    );
   }
 
   async onModuleDestroy(): Promise<void> {

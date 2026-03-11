@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, SourcePlatformCode } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ImportYoutubeVideosDto } from './dto/import-youtube-videos.dto';
@@ -27,6 +27,8 @@ interface ImportResult {
 
 @Injectable()
 export class VideosService {
+  private readonly logger = new Logger(VideosService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly shortClassifierService: ShortClassifierService,
@@ -51,11 +53,42 @@ export class VideosService {
       }
     });
 
-    const searchResults = await this.videoProvider.searchRecentVideosByKeyword(input.keyword);
+    let searchResults: Awaited<ReturnType<VideoProvider['searchRecentVideosByKeyword']>> = [];
 
-    const details = await this.videoProvider.getVideoDetails(
-      searchResults.map((item) => item.id)
-    );
+    try {
+      searchResults = await this.videoProvider.searchRecentVideosByKeyword(input.keyword);
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'youtube_search_fallback_empty',
+          nicheId: input.nicheId,
+          keyword: input.keyword,
+          error: error instanceof Error ? error.message : String(error)
+        })
+      );
+
+      return {
+        keyword: input.keyword,
+        totalFound: 0,
+        totalImported: 0,
+        videos: []
+      };
+    }
+
+    let details: Awaited<ReturnType<VideoProvider['getVideoDetails']>> = [];
+
+    try {
+      details = await this.videoProvider.getVideoDetails(searchResults.map((item) => item.id));
+    } catch (error) {
+      this.logger.warn(
+        JSON.stringify({
+          event: 'youtube_details_fallback_metadata_only',
+          nicheId: input.nicheId,
+          keyword: input.keyword,
+          error: error instanceof Error ? error.message : String(error)
+        })
+      );
+    }
 
     const detailsMap = new Map(details.map((item) => [item.id, item]));
 

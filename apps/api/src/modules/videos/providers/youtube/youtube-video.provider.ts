@@ -1,4 +1,4 @@
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { request as httpsRequest } from 'node:https';
 import {
@@ -56,8 +56,11 @@ interface YouTubeVideosResponse {
 export class YoutubeVideoProvider implements VideoProvider {
   readonly platform = 'YOUTUBE' as const;
 
+  private readonly logger = new Logger(YoutubeVideoProvider.name);
   private readonly apiKey: string;
   private readonly baseUrl: string;
+  private readonly maxRetries: number;
+  private readonly timeoutMs: number;
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('YOUTUBE_API_KEY', '');
@@ -65,6 +68,8 @@ export class YoutubeVideoProvider implements VideoProvider {
       'YOUTUBE_API_BASE_URL',
       'https://www.googleapis.com/youtube/v3'
     );
+    this.maxRetries = this.configService.get<number>('YOUTUBE_MAX_RETRIES', 3);
+    this.timeoutMs = this.configService.get<number>('YOUTUBE_TIMEOUT_MS', 8000);
   }
 
   async searchRecentVideosByKeyword(keyword: string): Promise<RawVideoSearchResult[]> {
@@ -172,10 +177,12 @@ export class YoutubeVideoProvider implements VideoProvider {
   private async requestWithRetry<T>(
     path: string,
     params: Record<string, string>,
-    retries = 3
+    retries = this.maxRetries
   ): Promise<T> {
     if (!this.apiKey) {
-      throw new ServiceUnavailableException('YOUTUBE_API_KEY não configurada.');
+      throw new ServiceUnavailableException(
+        'Integração com YouTube indisponível. Verifique YOUTUBE_API_KEY.'
+      );
     }
 
     const query = new URLSearchParams({ ...params, key: this.apiKey }).toString();
@@ -193,41 +200,62 @@ export class YoutubeVideoProvider implements VideoProvider {
 
         if (response.statusCode >= 400) {
           throw new ServiceUnavailableException(
-            `YouTube API retornou erro HTTP ${response.statusCode}.`
+            `YouTube API indisponível no momento (HTTP ${response.statusCode}).`
           );
         }
 
         return JSON.parse(response.body) as T;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+
+        this.logger.warn(
+          JSON.stringify({
+            event: 'youtube_request_retry',
+            path,
+            attempt,
+            retries,
+            error: lastError.message
+          })
+        );
+
         if (attempt < retries) {
-          const backoffMs = attempt * 500;
-          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          await this.delay(250 * 2 ** (attempt - 1));
           continue;
         }
       }
     }
 
     throw new ServiceUnavailableException(
-      `Falha ao consultar YouTube API após tentativas: ${lastError?.message ?? 'erro desconhecido'}.`
+      `YouTube API indisponível após ${retries} tentativas. Tente novamente em instantes. ${
+        lastError ? `Detalhe: ${lastError.message}` : ''
+      }`
     );
   }
 
   private httpGet(url: string): Promise<{ statusCode: number; body: string }> {
     return new Promise((resolve, reject) => {
       const req = httpsRequest(url, { method: 'GET' }, (res) => {
-        let body = '';
+        let rawBody = '';
+
         res.setEncoding('utf8');
         res.on('data', (chunk) => {
-          body += chunk;
+          rawBody += chunk;
         });
         res.on('end', () => {
-          resolve({ statusCode: res.statusCode ?? 500, body });
+          resolve({ statusCode: res.statusCode ?? 500, body: rawBody });
         });
+      });
+
+      req.setTimeout(this.timeoutMs, () => {
+        req.destroy(new Error(`YouTube timeout após ${this.timeoutMs}ms`));
       });
 
       req.on('error', reject);
       req.end();
     });
+  }
+
+  private delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

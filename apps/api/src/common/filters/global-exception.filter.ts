@@ -3,12 +3,15 @@ import {
   Catch,
   ExceptionFilter,
   HttpException,
-  HttpStatus
+  HttpStatus,
+  Logger
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 @Catch()
 export class GlobalExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const request = ctx.getRequest<Request>();
@@ -25,7 +28,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const message =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
-        : this.extractMessage(exceptionResponse) ?? 'Internal server error';
+        : this.extractMessage(exceptionResponse) ?? this.getFriendlyMessage(status);
+
+    this.logger.error(
+      JSON.stringify({
+        event: 'http_exception_handled',
+        method: request.method,
+        path: request.url,
+        status,
+        message,
+        error: exception instanceof Error ? exception.message : String(exception)
+      })
+    );
 
     response.status(status).json({
       statusCode: status,
@@ -48,5 +62,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     }
 
     return undefined;
+  }
+
+  private getFriendlyMessage(status: number): string {
+    if (status >= 500) {
+      return 'Erro interno temporário. Tente novamente em instantes.';
+    }
+
+    return 'Não foi possível processar sua solicitação.';
   }
 }
