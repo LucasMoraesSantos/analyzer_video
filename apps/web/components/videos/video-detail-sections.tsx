@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ClassificationBadge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import type { VideoScriptItem } from '@/hooks/use-video-detail';
+import { buildScriptText } from './video-detail.logic';
 
 function formatDate(value: string | null): string {
   if (!value) return '—';
@@ -25,22 +26,6 @@ function extractArrayStrings(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
 }
 
-function buildScriptText(responseJson: unknown): string {
-  const script = asRecord(responseJson);
-  if (!script) return 'Roteiro indisponível';
-
-  const fields = [
-    ['Hook', script.hook],
-    ['Abertura', script.abertura],
-    ['Desenvolvimento', script.desenvolvimento],
-    ['Fechamento', script.fechamento],
-    ['CTA', script.cta]
-  ];
-
-  return fields
-    .map(([label, value]) => `${label}: ${typeof value === 'string' ? value : '—'}`)
-    .join('\n\n');
-}
 
 export function VideoHeaderCard({
   title,

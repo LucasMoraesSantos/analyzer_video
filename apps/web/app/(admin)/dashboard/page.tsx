@@ -4,6 +4,7 @@ import { EmptyState, ErrorState, LoadingState } from '@/components/common/states
 import { KpiCards } from '@/components/dashboard/kpi-cards';
 import { TrendChart } from '@/components/dashboard/trend-chart';
 import { VideosTable } from '@/components/videos/videos-table';
+import { countExploding, mapTopNichesToChartData } from '@/components/dashboard/dashboard-view.logic';
 import {
   useDashboardNiches,
   useDashboardOverview,
@@ -36,10 +37,8 @@ export default function DashboardPage() {
   }
 
   const summary = overview.data?.data;
-  const topNiches = (niches.data?.data ?? []).slice(0, 5);
-  const exploding = (trends.data?.data ?? []).filter(
-    (item) => item.trendClassification === 'EXPLODINDO'
-  ).length;
+  const topNiches = niches.data?.data ?? [];
+  const exploding = countExploding(trends.data?.data ?? []);
 
   return (
     <div className="space-y-6">
@@ -58,9 +57,7 @@ export default function DashboardPage() {
       {topNiches.length === 0 ? (
         <EmptyState title="Sem nichos" description="Não há nichos para exibir no dashboard." />
       ) : (
-        <TrendChart
-          data={topNiches.map((item) => ({ name: item.name, score: item.metrics.avgTrendScore }))}
-        />
+        <TrendChart data={mapTopNichesToChartData(topNiches)} />
       )}
 
       <section>

@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateKeywordDto } from './dto/create-keyword.dto';
 import { ListKeywordsQueryDto } from './dto/list-keywords-query.dto';
 import { UpdateKeywordDto } from './dto/update-keyword.dto';
+import { buildKeywordListWhere, buildPaginationMeta } from './services/keywords-query.logic';
 
 interface PaginatedResult<T> {
   data: T[];
@@ -28,12 +29,10 @@ export class KeywordsService {
     const pageSize = query.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.KeywordWhereInput = {
-      ...(query.nicheId ? { nicheId: query.nicheId } : {}),
-      ...(query.search
-        ? { term: { contains: query.search, mode: 'insensitive' } }
-        : {})
-    };
+    const where: Prisma.KeywordWhereInput = buildKeywordListWhere({
+      nicheId: query.nicheId,
+      search: query.search
+    });
 
     const [total, data] = await this.prisma.$transaction([
       this.prisma.keyword.count({ where }),
@@ -47,12 +46,7 @@ export class KeywordsService {
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        pageSize,
-        totalPages: Math.max(1, Math.ceil(total / pageSize))
-      }
+      meta: buildPaginationMeta(total, page, pageSize)
     };
   }
 

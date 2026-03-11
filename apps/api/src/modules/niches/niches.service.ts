@@ -10,6 +10,11 @@ import { ListKeywordsQueryDto } from '../keywords/dto/list-keywords-query.dto';
 import { CreateNicheDto } from './dto/create-niche.dto';
 import { ListNichesQueryDto } from './dto/list-niches-query.dto';
 import { UpdateNicheDto } from './dto/update-niche.dto';
+import {
+  buildKeywordsByNicheWhere,
+  buildNicheListWhere,
+  buildPaginationMeta
+} from './services/niches-query.logic';
 
 interface PaginatedResult<T> {
   data: T[];
@@ -30,14 +35,7 @@ export class NichesService {
     const pageSize = query.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.NicheWhereInput = query.search
-      ? {
-          OR: [
-            { name: { contains: query.search, mode: 'insensitive' } },
-            { slug: { contains: query.search, mode: 'insensitive' } }
-          ]
-        }
-      : {};
+    const where: Prisma.NicheWhereInput = buildNicheListWhere(query.search);
 
     const [total, data] = await this.prisma.$transaction([
       this.prisma.niche.count({ where }),
@@ -51,12 +49,7 @@ export class NichesService {
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        pageSize,
-        totalPages: Math.max(1, Math.ceil(total / pageSize))
-      }
+      meta: buildPaginationMeta(total, page, pageSize)
     };
   }
 
@@ -138,12 +131,7 @@ export class NichesService {
     const pageSize = query.pageSize ?? 20;
     const skip = (page - 1) * pageSize;
 
-    const where: Prisma.KeywordWhereInput = {
-      nicheId,
-      ...(query.search
-        ? { term: { contains: query.search, mode: 'insensitive' } }
-        : {})
-    };
+    const where: Prisma.KeywordWhereInput = buildKeywordsByNicheWhere(nicheId, query.search);
 
     const [total, data] = await this.prisma.$transaction([
       this.prisma.keyword.count({ where }),
@@ -157,12 +145,7 @@ export class NichesService {
 
     return {
       data,
-      meta: {
-        total,
-        page,
-        pageSize,
-        totalPages: Math.max(1, Math.ceil(total / pageSize))
-      }
+      meta: buildPaginationMeta(total, page, pageSize)
     };
   }
 }

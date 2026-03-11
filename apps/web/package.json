@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "test": "node -e \"console.log('No tests yet for @analyzer/web (stage 1).')\""
+    "test": "npm run test:dashboard-logic && npm run test:video-detail-logic",
+    "test:dashboard-logic": "node --test components/dashboard/__tests__/dashboard-view.logic.spec.mjs",
+    "test:video-detail-logic": "node --test components/videos/__tests__/video-detail.logic.spec.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.8",
