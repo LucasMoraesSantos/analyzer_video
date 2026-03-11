@@ -19,7 +19,7 @@ export function VideosTable({ data }: { data: VideosResponse['data'] }) {
           {data.map((row) => (
             <tr key={row.id} className="border-t border-slate-100">
               <td className="px-4 py-3 font-medium text-slate-800">
-                <Link href={`/videos?id=${row.id}`} className="hover:underline">
+                <Link href={`/videos/${row.id}`} className="hover:underline">
                   {row.title}
                 </Link>
               </td>
