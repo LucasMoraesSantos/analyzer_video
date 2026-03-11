@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { countExploding, mapTopNichesToChartData } from '../dashboard-view.logic.js';
+import dashboardLogic from '../dashboard-view.logic.js';
+
+const { countExploding, mapTopNichesToChartData } = dashboardLogic;
 
 test('countExploding conta somente itens EXPLODINDO', () => {
   const count = countExploding([

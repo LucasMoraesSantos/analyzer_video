@@ -1,11 +1,11 @@
-export function buildKeywordListWhere({ nicheId, search }) {
+function buildKeywordListWhere({ nicheId, search }) {
   return {
     ...(nicheId ? { nicheId } : {}),
     ...(search ? { term: { contains: search, mode: 'insensitive' } } : {})
   };
 }
 
-export function buildPaginationMeta(total, page, pageSize) {
+function buildPaginationMeta(total, page, pageSize) {
   return {
     total,
     page,
@@ -13,3 +13,8 @@ export function buildPaginationMeta(total, page, pageSize) {
     totalPages: Math.max(1, Math.ceil(total / pageSize))
   };
 }
+
+module.exports = {
+  buildKeywordListWhere,
+  buildPaginationMeta
+};

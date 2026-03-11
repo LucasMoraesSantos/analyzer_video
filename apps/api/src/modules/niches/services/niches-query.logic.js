@@ -1,4 +1,4 @@
-export function buildNicheListWhere(search) {
+function buildNicheListWhere(search) {
   if (!search) {
     return {};
   }
@@ -11,14 +11,14 @@ export function buildNicheListWhere(search) {
   };
 }
 
-export function buildKeywordsByNicheWhere(nicheId, search) {
+function buildKeywordsByNicheWhere(nicheId, search) {
   return {
     nicheId,
     ...(search ? { term: { contains: search, mode: 'insensitive' } } : {})
   };
 }
 
-export function buildPaginationMeta(total, page, pageSize) {
+function buildPaginationMeta(total, page, pageSize) {
   return {
     total,
     page,
@@ -26,3 +26,9 @@ export function buildPaginationMeta(total, page, pageSize) {
     totalPages: Math.max(1, Math.ceil(total / pageSize))
   };
 }
+
+module.exports = {
+  buildNicheListWhere,
+  buildKeywordsByNicheWhere,
+  buildPaginationMeta
+};

@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildScriptText } from '../video-detail.logic.js';
+import videoDetailLogic from '../video-detail.logic.js';
+
+const { buildScriptText } = videoDetailLogic;
 
 test('buildScriptText retorna fallback para payload inválido', () => {
   assert.equal(buildScriptText(null), 'Roteiro indisponível');

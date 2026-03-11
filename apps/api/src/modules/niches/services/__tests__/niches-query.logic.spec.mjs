@@ -1,10 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  buildKeywordsByNicheWhere,
-  buildNicheListWhere,
-  buildPaginationMeta
-} from '../niches-query.logic.js';
+import nichesLogic from '../niches-query.logic.js';
+
+const { buildKeywordsByNicheWhere, buildNicheListWhere, buildPaginationMeta } = nichesLogic;
 
 test('buildNicheListWhere monta OR quando há busca', () => {
   const where = buildNicheListWhere('financas');

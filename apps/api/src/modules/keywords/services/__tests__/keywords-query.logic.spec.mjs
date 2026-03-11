@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildKeywordListWhere, buildPaginationMeta } from '../keywords-query.logic.js';
+import keywordsLogic from '../keywords-query.logic.js';
+
+const { buildKeywordListWhere, buildPaginationMeta } = keywordsLogic;
 
 test('buildKeywordListWhere monta filtros de nicheId e search', () => {
   assert.deepEqual(buildKeywordListWhere({ nicheId: undefined, search: undefined }), {});

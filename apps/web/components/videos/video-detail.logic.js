@@ -1,4 +1,4 @@
-export function buildScriptText(responseJson) {
+function buildScriptText(responseJson) {
   if (!responseJson || typeof responseJson !== 'object' || Array.isArray(responseJson)) {
     return 'Roteiro indisponível';
   }
@@ -16,3 +16,7 @@ export function buildScriptText(responseJson) {
     .map(([label, value]) => `${label}: ${typeof value === 'string' ? value : '—'}`)
     .join('\n\n');
 }
+
+module.exports = {
+  buildScriptText
+};
