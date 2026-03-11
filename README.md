@@ -255,10 +255,10 @@ npm run test --workspace @analyzer/web
 
 ### 11.1 Deploy do frontend no Netlify
 
-Este repositório já inclui `netlify.toml` para build do workspace web (`@analyzer/web`) com plugin oficial do Next.js.
+Este repositório já inclui `netlify.toml` para build do workspace web (`@analyzer/web`) com runtime oficial do Next.js (plugin gerenciado pelo Netlify).
 
 1. Crie um novo site no Netlify apontando para este repositório.
-2. Mantenha o build command definido no arquivo (`npm ci && npm run build --workspace @analyzer/web`).
+2. Mantenha o build command definido no arquivo (`npm install --workspaces --include-workspace-root && npm run build --workspace @analyzer/web`).
 3. Configure as variáveis do frontend no Netlify:
    - `NEXT_PUBLIC_API_BASE_URL` = URL pública da sua API (ex: `https://sua-api.onrender.com/api`)
    - `NEXT_PUBLIC_NETLIFY_SITE_URL` = URL do seu próprio site Netlify (ex: `https://analyzer-video.netlify.app`)

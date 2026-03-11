@@ -1,6 +1,8 @@
 [build]
-command = "npm ci && npm run build --workspace @analyzer/web"
-publish = "apps/web/.next"
+command = "npm install --workspaces --include-workspace-root && npm run build --workspace @analyzer/web"
 
-[[plugins]]
-package = "@netlify/plugin-nextjs"
+[build.environment]
+NODE_VERSION = "20"
+
+# O plugin oficial do Next.js no Netlify é injetado automaticamente pelo runtime.
+# Evitamos pin manual em netlify.toml para não ficar defasado.
