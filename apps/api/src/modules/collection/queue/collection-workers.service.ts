@@ -6,6 +6,7 @@ import IORedis from 'ioredis';
 import { StructuredLoggerService } from '../../../common/logger/structured-logger.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { AnalyticsService } from '../../analytics/analytics.service';
+import { SummariesService } from '../../summaries/summaries.service';
 import { VideosService } from '../../videos/videos.service';
 import { QUEUE_NAMES } from '../constants/queue-names';
 import {
@@ -24,6 +25,7 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly videosService: VideosService,
     private readonly analyticsService: AnalyticsService,
+    private readonly summariesService: SummariesService,
     private readonly collectionQueueService: CollectionQueueService,
     private readonly logger: StructuredLoggerService
   ) {
@@ -159,6 +161,27 @@ export class CollectionWorkersService implements OnModuleInit, OnModuleDestroy {
             queueName,
             collectionJobId: job.data.collectionJobId,
             processedVideos: result.processedVideos,
+            bullJobId: job.id
+          },
+          CollectionWorkersService.name
+        );
+
+        return;
+      }
+
+      if (queueName === QUEUE_NAMES.generateSummary) {
+        const result = await this.summariesService.generateForCollectionJob(
+          job.data.collectionJobId
+        );
+
+        this.logger.log(
+          {
+            event: 'generate_summary_completed',
+            queueName,
+            collectionJobId: job.data.collectionJobId,
+            processedVideos: result.processedVideos,
+            completed: result.completed,
+            failed: result.failed,
             bullJobId: job.id
           },
           CollectionWorkersService.name

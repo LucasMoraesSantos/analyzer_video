@@ -8,7 +8,10 @@ const environmentSchema = z.object({
   REDIS_HOST: z.string().min(1),
   REDIS_PORT: z.coerce.number().int().positive(),
   YOUTUBE_API_KEY: z.string().min(1),
-  YOUTUBE_API_BASE_URL: z.string().url().default('https://www.googleapis.com/youtube/v3')
+  YOUTUBE_API_BASE_URL: z.string().url().default('https://www.googleapis.com/youtube/v3'),
+  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_MODEL: z.string().min(1).default('gpt-4o-mini'),
+  OPENAI_API_BASE_URL: z.string().url().default('https://api.openai.com/v1')
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
